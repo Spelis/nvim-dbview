@@ -1,13 +1,9 @@
 local M = {}
 
-M.rootpath = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
-M.apipath = M.rootpath .. "/api.py"
+M.apipath = (vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")) .. "/api.py"
 
--- Helper: Run Python script to query DB
-function M.query_db(db, query)
-	local json = vim.fn.system({ "python", M.apipath, "query", db, query })
-	return vim.fn.json_decode(json)
-end
+M.query = require("dbview.querydb")
+M.new = require("dbview.newdb")
 
 local function restore_newlines(str)
 	return vim.split(str:gsub("%%n", "\n"), "\n")
@@ -19,6 +15,10 @@ function M.open(db_path, new_buf)
 		vim.notify("DB file does not exist: " .. db_path, vim.log.levels.ERROR)
 		return
 	end
+
+	local jinfo = vim.fn.system({ "python", M.apipath, "ginfo", db_path })
+	local info = vim.fn.json_decode(jinfo)
+	print(info["dbtype"])
 
 	vim.notify("Opening database: " .. db_path)
 
@@ -52,8 +52,6 @@ end
 
 -- Execute SQL lines from current buffer and render results
 function M.exec()
-	vim.notify("Executing...", vim.log.levels.INFO)
-
 	local buf = vim.api.nvim_get_current_buf()
 	local db = vim.api.nvim_buf_get_var(buf, "db_path")
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
@@ -66,7 +64,7 @@ function M.exec()
 			table.insert(result_lines, line)
 
 			local trimmed = line:match("^%s*(.-)%s*$")
-			local res = M.query_db(db, trimmed)
+			local res = M.query.sqlite(db, trimmed)
 			local evalquery = res.query
 			local command = evalquery:lower():match("^(%w+)") -- Without this aliases that use SELECT wouldn't be recognized, this fixes that.
 			local content = ""
@@ -110,11 +108,6 @@ function M.exec()
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, result_lines)
 end
 
--- Create new DB files from command or lua
-function M.new(db)
-	vim.fn.system({ "python", M.apipath, "new", db })
-end
-
 -- Set up user commands and autocommands
 function M.setup()
 	vim.api.nvim_create_user_command("DBOpen", function(opts)
@@ -129,7 +122,7 @@ function M.setup()
 
 	vim.api.nvim_create_user_command("DBQuery", function(opts)
 		local query = vim.fn.input({ prompt = "Query: " })
-		local result = M.query_db(opts.fargs[1], query)
+		local result = M.query.sqlite(opts.fargs[1], query)
 		vim.fn.setreg("+", vim.inspect(result))
 		print(vim.inspect(result))
 	end, { nargs = 1 })
