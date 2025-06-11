@@ -1,11 +1,13 @@
 local M = {}
 
+local pythonExecutable = "/home/script/Workspaces/Projects/nvim-dbview/.venv/bin/python"
+
 M.rootpath = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
 M.apipath = M.rootpath .. "/api.py"
 
 -- Helper: Run Python script to query DB
 function M.query_db(db, query)
-	local json = vim.fn.system({ "python", M.apipath, "query", db, query })
+	local json = vim.fn.system({ pythonExecutable, M.apipath, "query", db, query })
 	return vim.fn.json_decode(json)
 end
 
@@ -112,7 +114,7 @@ end
 
 -- Create new DB files from command or lua
 function M.new(db)
-	vim.fn.system({ "python", M.apipath, "new", db })
+	vim.fn.system({ pythonExecutable, M.apipath, "new", db })
 end
 
 -- Set up user commands and autocommands
