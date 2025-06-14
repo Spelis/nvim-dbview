@@ -1,8 +1,8 @@
 
 # nvim-dbview
 
-**A lightweight SQLite database viewer and executor for Neovim.**  
-Query and inspect `.db` files directly inside a buffer using Lua and a Python bridge.
+**A lightweight database viewer and executor for Neovim.**  
+Query and inspect database files directly inside a buffer using Lua and a Python bridge.
 
 ---
 
@@ -10,7 +10,7 @@ Query and inspect `.db` files directly inside a buffer using Lua and a Python br
 
 - View and Execute sqlite commands
 - Execute queries with `<C-x>` in normal, insert, or visual mode
-- Quick aliases like `.tables`, `.schema`, and other handy aliases
+- Quick aliases like `.tables`, `.schema`, and other handy aliases (Currently SQLite only.)
 - Clean buffer presentation
 - Pretty formatted SELECT results
 - New database creation right from Neovim
@@ -23,6 +23,7 @@ Query and inspect `.db` files directly inside a buffer using Lua and a Python br
 - Neovim 0.7+
 - Python 3.x
 - `sqlite3` module (bundled with Python)
+- `sqlalchemy` module
 - Works on Unix-like systems
 
 ---
@@ -33,7 +34,10 @@ Query and inspect `.db` files directly inside a buffer using Lua and a Python br
 ```
 {
     "Spelis/nvim-dbview",
-    opts = true,
+    opts = {
+        python_path = "python",
+        exec_key = "<C-x>",
+    },
     -- Lazy load if you want. no guarantee it will work.
 }
 ```
@@ -67,7 +71,7 @@ Currently only one keybind: `<C-x>`, will execute the SQL in the dbviewer buffer
 (will also make the keybind configurable)
 
 ## 💬 Query Format
-- Ignored lines start with a `#` and are concealed.
+- Ignored lines start with a `#` and are hidden.
 - Non-SELECT queries run only once to not cause damage.
 
 ## 🛠 Example Workflow
