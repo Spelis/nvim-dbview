@@ -1,92 +1,52 @@
 import json
-import os
+import sqlite3
 import sys
 
+from sqlalchemy import create_engine, text
+
+ALIASES = {
+    ".tables": "SELECT type, name FROM sqlite_master WHERE type='table'",
+    ".schema": "SELECT sql FROM sqlite_master",
+    ".tablecount": "SELECT COUNT(name) FROM sqlite_master WHERE type='table'",
+}
+
 if __name__ == "__main__":
-    if sys.argv[1] == "ginfo":
-        DTYPE_LOOKUP = {
-            b"SQLite format 3\x00": "sqlite",
-            b"PGDMP": "postgres",
-            b"\x00\x01\x00\x00": "microsoft",
-            b"FORM": "berkeley",
-            b"IB": "interbase",
-            b"\x00\x05\x00\x00": "paradox",
-        }
+    if sys.argv[1] == "query":
         file = sys.argv[2]
-        with open(file, "rb") as f:
-            header = f.read(100)
-
-        dtype = "unknown"
-        for magic, dbtype in DTYPE_LOOKUP.items():
-            if header.startswith(magic):
-                dtype = dbtype
-                break
-
-        d = {"filesize": os.path.getsize(file), "dbtype": dtype}
-    if sys.argv[1] == "sqlite":
-        import sqlite3
-
-        ALIASES = {
-            ".tables": "SELECT type, name FROM sqlite_master WHERE type='table'",
-            ".schema": "SELECT sql FROM sqlite_master",
-            ".tablecount": "SELECT COUNT(name) FROM sqlite_master WHERE type='table'",
-        }
-        if sys.argv[2] == "query":
-            file = sys.argv[3]
-            query = sys.argv[4].strip()
-            query = ALIASES.get(query.lower(), query)
-            try:
-                with sqlite3.connect(file) as con:
-                    cur = con.cursor()
-                    res = cur.execute(query)
-                    all_ = res.fetchall()
-                    one = all_[0] if all_ else None
-                    d = {
-                        "one": one,
-                        "all": all_,
-                        "success": bool(cur.rowcount),
-                        "query": query,
-                    }
-                    j = json.dumps(d, indent=4)
-                    j = (
-                        j.replace("\\n", "%n")
-                        .replace('\\"', "'")
-                        .replace("\\t", "    ")
-                    )
-                    print(j)
-                    con.commit()
-                    cur.close()
-            except Exception as e:
+        query = " ".join(sys.argv[3:]).strip()
+        query = ALIASES.get(query.lower(), query)
+        engine = create_engine(file if "://" in file else f"sqlite:///{file}")
+        try:
+            with engine.connect() as con:
+                res = con.execute(text(query))
+                all_ = [[str(j) for j in i] for i in res.fetchall()]
+                one = all_[0] if all_ else None
                 d = {
-                    "one": None,
-                    "all": (),
-                    "success": False,
-                    "error": str(e),
+                    "one": one,
+                    "all": all_,
+                    "success": res.rowcount > 0,
                     "query": query,
                 }
                 j = json.dumps(d, indent=4)
-                j = j.replace("\\n", "\n")
+                j = j.replace("\\n", "%n").replace('\\"', "'").replace("\\t", "    ")
                 print(j)
-        elif sys.argv[2] == "new":
-            file = sys.argv[3]
-            con = sqlite3.connect(file)
-            con.commit()
-            con.close()
-    if sys.argv[1] == "postgres":
-        import psycopg2
-
-        if sys.argv[2] == "query":
-            file = sys.argv[3]
-            query = sys.argv[4].strip()
-            try:
-                conn = psycopg2.connect(dbname=sys.argv[3])
-            except Exception as e:
-                d = {
-                    "one": None,
-                    "all": (),
-                    "success": False,
-                    "error": str(e),
-                    "query": query,
-                }
-                j = json.dumps(d, indent=4)
-                j = j.replace("\\n", "\n")
+                con.commit()
+                con.close()
+        except Exception as e:
+            d = {
+                "one": None,
+                "all": (),
+                "success": False,
+                "error": str(e),
+                "query": str(query),
+            }
+            j = json.dumps(d, indent=4)
+            j = j.replace("\\n", "\n")
+            print(j)
+    elif sys.argv[1] == "new":
+        file = sys.argv[2]
+        if "://" in file and not "sqlite" in file:
+            file = f"sqlite:///{file.split('://')[1]}"
+        con = sqlite3.connect(file)
+        con.commit()
+        con.close()

@@ -1,9 +1,20 @@
 local M = {}
 
-M.apipath = (vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")) .. "/api.py"
+M.rootpath = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
+M.apipath = M.rootpath .. "/api.py"
 
-M.query = require("dbview.querydb")
-M.new = require("dbview.newdb")
+local default_config = {
+	python_path = "python",
+	exec_key = "<C-x>",
+}
+
+M.config = {}
+
+-- Helper: Run Python script to query DB
+function M.query_db(db, query)
+	local json = vim.fn.system({ M.config.python_path, M.apipath, "query", db, query })
+	return vim.fn.json_decode(json)
+end
 
 local function restore_newlines(str)
 	return vim.split(str:gsub("%%n", "\n"), "\n")
@@ -15,13 +26,6 @@ function M.open(db_path, new_buf)
 		vim.notify("DB file does not exist: " .. db_path, vim.log.levels.ERROR)
 		return
 	end
-
-	local jinfo = vim.fn.system({ "python", M.apipath, "ginfo", db_path })
-	local info = vim.fn.json_decode(jinfo)
-	print(info["dbtype"])
-
-	vim.notify("Opening database: " .. db_path)
-
 	local buf = new_buf and vim.api.nvim_create_buf(true, true) or vim.api.nvim_get_current_buf()
 	if new_buf then
 		vim.api.nvim_win_set_buf(0, buf)
@@ -42,7 +46,7 @@ function M.open(db_path, new_buf)
 	end)
 
 	for _, mode in ipairs({ "n", "i", "v" }) do
-		vim.keymap.set(mode, "<C-x>", M.exec, {
+		vim.keymap.set(mode, M.config.exec_key, M.exec, {
 			buffer = buf,
 			noremap = true,
 			desc = "Execute all queries",
@@ -64,7 +68,7 @@ function M.exec()
 			table.insert(result_lines, line)
 
 			local trimmed = line:match("^%s*(.-)%s*$")
-			local res = M.query.sqlite(db, trimmed)
+			local res = M.query_db(db, trimmed)
 			local evalquery = res.query
 			local command = evalquery:lower():match("^(%w+)") -- Without this aliases that use SELECT wouldn't be recognized, this fixes that.
 			local content = ""
@@ -108,8 +112,15 @@ function M.exec()
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, result_lines)
 end
 
+-- Create new DB files from command or lua
+function M.new(db)
+	vim.fn.system({ M.config.python_path, M.apipath, "new", db })
+end
+
 -- Set up user commands and autocommands
-function M.setup()
+function M.setup(conf)
+	M.config = vim.tbl_deep_extend("force", {}, default_config, conf or {})
+
 	vim.api.nvim_create_user_command("DBOpen", function(opts)
 		M.open(opts.fargs[1], true)
 	end, { nargs = 1 })
@@ -122,7 +133,7 @@ function M.setup()
 
 	vim.api.nvim_create_user_command("DBQuery", function(opts)
 		local query = vim.fn.input({ prompt = "Query: " })
-		local result = M.query.sqlite(opts.fargs[1], query)
+		local result = M.query_db(opts.fargs[1], query)
 		vim.fn.setreg("+", vim.inspect(result))
 		print(vim.inspect(result))
 	end, { nargs = 1 })
