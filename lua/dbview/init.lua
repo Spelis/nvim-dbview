@@ -44,6 +44,9 @@ function M.open(db_path, new_buf)
 	vim.api.nvim_buf_call(buf, function()
 		vim.cmd([[syntax match ConcealMarker /#/ conceal]])
 	end)
+	vim.api.nvim_buf_call(buf, function()
+		vim.cmd([[syntax match ConcealMarker /@/ conceal]])
+	end)
 
 	for _, mode in ipairs({ "n", "i", "v" }) do
 		vim.keymap.set(mode, M.config.exec_key, M.exec, {
@@ -64,6 +67,8 @@ function M.exec()
 
 	for _, line in ipairs(lines) do
 		if line:match("^%s*#") then
+		elseif line:match("^%s*@") then
+			table.insert(result_lines, line)
 		elseif line:match("%S") then
 			table.insert(result_lines, line)
 
@@ -81,8 +86,8 @@ function M.exec()
 
 			if command ~= "select" then
 				table.remove(result_lines)
-				table.insert(result_lines, "#" .. line)
-				table.insert(result_lines, "# " .. (res.success and "Query OK" or "Failed"))
+				table.insert(result_lines, "@" .. line)
+				table.insert(result_lines, "@ " .. (res.success and "Query OK" or "Failed"))
 				goto continue
 			end
 
