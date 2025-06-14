@@ -36,11 +36,11 @@ function M.open(db_path, new_buf)
 	vim.bo[buf].swapfile = false
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].filetype = "sql"
-	vim.api.nvim_buf_set_option(buf, "bufhidden", "hide") -- Warn: deprecated
+	vim.bo[buf].bufhidden = "hide"
 	vim.api.nvim_buf_set_var(buf, "db_path", db_path)
 	vim.api.nvim_buf_set_name(buf, "db:" .. vim.fn.sha256(tostring(os.time())))
 
-	vim.api.nvim_win_set_option(0, "conceallevel", 2) -- Warn: deprecated
+	vim.wo.conceallevel = 2
 	vim.api.nvim_buf_call(buf, function()
 		vim.cmd([[syntax match ConcealMarker /#/ conceal]])
 	end)
@@ -98,8 +98,8 @@ function M.exec()
 					local formatted = is_single_column and tostring(row[1])
 						or table.concat(vim.tbl_map(tostring, row), "\t")
 
-					for _, line in ipairs(restore_newlines(formatted)) do
-						table.insert(result_lines, "# " .. line)
+					for _, line2 in ipairs(restore_newlines(formatted)) do
+						table.insert(result_lines, "# " .. line2)
 					end
 				end
 				goto continue
@@ -117,12 +117,12 @@ function M.exec()
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, result_lines)
 end
 
--- Create new DB files from command or lua
+-- Create new DB files from command or Lua
 function M.new(db)
 	vim.fn.system({ M.config.python_path, M.apipath, "new", db })
 end
 
--- Set up user commands and autocommands
+-- Set up user commands and auto-commands
 function M.setup(conf)
 	M.config = vim.tbl_deep_extend("force", {}, default_config, conf or {})
 
