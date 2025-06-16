@@ -4,7 +4,7 @@ M.rootpath = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h")
 M.apipath = M.rootpath .. "/api.py"
 
 local default_config = {
-	python_path = "python",
+	python_path = "/usr/bin/python",
 	exec_key = "<C-x>",
 }
 
