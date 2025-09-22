@@ -27,18 +27,17 @@ function M.open(db_path, new_buf)
 		return
 	end
 	local buf = new_buf and vim.api.nvim_create_buf(true, true) or vim.api.nvim_get_current_buf()
-	if new_buf then
-		vim.api.nvim_win_set_buf(0, buf)
-	else
+	if not new_buf then
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, {})
 	end
+	vim.api.nvim_win_set_buf(0, buf)
 
 	vim.bo[buf].swapfile = false
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].filetype = "sql"
 	vim.bo[buf].bufhidden = "hide"
 	vim.api.nvim_buf_set_var(buf, "db_path", db_path)
-	vim.api.nvim_buf_set_name(buf, "db:" .. vim.fn.sha256(tostring(os.time())))
+	vim.api.nvim_buf_set_name(buf, "dbview:" .. vim.fn.sha256(tostring(os.time())))
 
 	vim.wo.conceallevel = 2
 	vim.api.nvim_buf_call(buf, function()
